@@ -39,7 +39,7 @@ Internal K8s traffic between infrastructure components is mandated to use TLS - 
 ### Obtain a signed certificate
 
 #### Step 1 - Create K8s CertificateSigningRequest:
-'''
+```
 cat <<EOF | kubectl apply -f -
 apiVersion: certificates.k8s.io/v1
 kind: CertificateSigningRequest
@@ -53,32 +53,32 @@ usages:
 - key encipherment
 - server auth
   EOF
-'''
+```
 #### Step 2 - Approve CertificateSigningRequest:
-'''
+```
 kubectl certificate approve webhook.default
-'''
+```
 #### Step 3 - Download the approved certificate:
-'''
+```
 kubectl get csr webhook.default -o jsonpath='{.status.certificate}' \
 | base64 --decode > server.crt
-'''
+```
 #### Step 4 - Install the certificate as a TLS secret in your K8s cluster:
-'''
+```
 kubectl create secret tls webhook-tls --cert=server.crt --key=server-key.pem
-'''
+```
 
 ### Install K8s Hide Env
-'''
+```
 kubectl apply -f src/k8s/service.yaml
 kubectl apply -f src/k8s/k8s-hide-env-deployment.yaml
-'''
+```
 
 ### Create the Webhook
 
 Please note that here you have to provide the K8s cluster root certificate to validate TLS connections. E.g. with Minikube, this can be done as follows:
 
-'''
+```
 cat <<EOF | kubectl replace --force -f -
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -108,4 +108,4 @@ webhooks:
         resources: ["deployments", "daemonsets", "statefulsets"]
         scope: "*"
 EOF
-'''
+```
