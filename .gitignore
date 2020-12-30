@@ -1,3 +1,6 @@
 /src/main/k8s/server.crt
 /src/main/k8s/server.csr
 /src/main/k8s/server-key.pem
+.gradle
+.idea
+build
