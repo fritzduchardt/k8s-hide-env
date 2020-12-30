@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: webhook
+  name: webhook
+spec:
+  containers:
+  - image: fritzduchardt/k8s-hide-env
+    name: k8s-hide-env
+    resources: {}
+    lifecycle:
+     postStart:
+       exec:
+         command:
+           - bash
+           - -c
+           - openssl pkcs12 -passout pass:password -export -in /cert/tls.crt -inkey /cert/tls.key -out /webhook.p12 -name webhook -CAfile /run/secrets/kubernetes.io/serviceaccount/ca.crt -caname root
+    volumeMounts:
+      - mountPath: /cert
+        name: cert
+  volumes:
+  - name: cert
+    secret:
+      secretName: webhook-tls
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
