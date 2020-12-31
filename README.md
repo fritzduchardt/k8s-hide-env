@@ -1,14 +1,12 @@
 # K8s Hide Env
 
-## Description
+K8s Hide Env removes environment variables from your container environment and makes them  **only visible to the container main process and its child processes**.
 
-K8s commonly exposes environment variables in the container environment. This carries **substantial security risks**, since it allows container hijackers to gain access to infrastructure credentials.
-
-K8s Hide Env addresses this problem by making environment variables **only visible to the container main process and its child processes**.
+By default, K8s exposes environment variables in the container environment. This carries **substantial security risks**, since it allows container hijackers to gain access to infrastructure credentials.
 
 ## How it works
 
-K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) in your K8s cluster, which in a nut-shell **moves your container environment variables to an in-memory file that is sourced by the shell that starts the main process**. In detail, the following changes are made to the K8s manifests of your *Deployments*, *Daemonsets* or *StatefulSets*:
+K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) in your K8s cluster, which in a nut-shell **moves your container environment variables to an in-memory file that is sourced by the shell that starts the main process and then deleted**. In detail, the following changes are made to the K8s manifests of your *Deployments*, *Daemonsets* or *StatefulSets*:
 
 1. Add an in-memory empty directory to the Pod template.
 2. Add an init container for each Pod container that writes the container env variables to a file. This file is written to the in-memory directory.
@@ -16,14 +14,11 @@ K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/2
 4. Amend the container startup command to first source the env variables from that file, before starting the container main process. The file is deleted immediately after sourcing.
 5. Remove all environment variables from the K8s manifest.
 
-## Config Limitations
+## Limitations
 
 - Only works on *Deployments*, *StatefulSets* and *Daemonsets*.
 - All environment variables have to be written straight into the K8s manifests. Reading from *Secrets* or *ConfigMaps* is currently not supported.
 - `ENTRYPOINT` and / or `CMD` configuration of the application container image has to get overwritten in K8s manifest with the `command` and / or `args` element.
-
-## Security Limitations
-
 - Environment values will still be visible from the worker node proc file system.
 - Environment values will still be visible in the K8s manifest.
 
