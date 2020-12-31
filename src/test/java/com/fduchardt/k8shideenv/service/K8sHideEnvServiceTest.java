@@ -17,7 +17,7 @@ class K8sHideEnvServiceTest {
 
     @Test
     public void test() throws URISyntaxException, IOException {
-        String json = underTest.createAdmissionResponse(Files.readString(Paths.get(ClassLoader.getSystemResource("admission-request.yml").toURI())));
+        String json = underTest.createAdmissionResponse(Files.readString(Paths.get(ClassLoader.getSystemResource("admission-request.yaml").toURI())));
         System.out.println(json);
     }
 
