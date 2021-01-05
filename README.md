@@ -39,7 +39,7 @@ cat <<EOF | kubectl apply -f -
 apiVersion: certificates.k8s.io/v1
 kind: CertificateSigningRequest
 metadata:
-  name: webhook.default
+  name: k8s-hide-env.default
 spec:
   request: $(cat server.csr | base64 | tr -d '\n')
   signerName: kubernetes.io/kubelet-serving
@@ -51,16 +51,16 @@ EOF
 ```
 #### Step 2 - Approve CertificateSigningRequest:
 ```shell
-kubectl certificate approve webhook.default
+kubectl certificate approve k8s-hide-env.default
 ```
 #### Step 3 - Download the approved certificate:
 ```shell
-kubectl get csr webhook.default -o jsonpath='{.status.certificate}' \
+kubectl get csr k8s-hide-env.default -o jsonpath='{.status.certificate}' \
 | base64 --decode > server.crt
 ```
 #### Step 4 - Install the certificate as a TLS secret in your K8s cluster:
 ```shell
-kubectl create secret tls webhook-tls --cert=server.crt --key=server-key.pem
+kubectl create secret tls k8s-hide-env-tls --cert=server.crt --key=server-key.pem
 ```
 
 ### Install K8s Hide Env
@@ -78,11 +78,11 @@ cat <<EOF | kubectl replace --force -f -
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: webhook
+  name: k8s-hide-env
   labels:
-    app: webhook
+    app: k8s-hide-env
 webhooks:
-  - name: webhook.default.svc.cluster.local
+  - name: k8s-hide-env.default.svc.cluster.local
     sideEffects: None
     admissionReviewVersions: ["v1", "v1beta1"]
     matchPolicy: Equivalent
@@ -92,7 +92,7 @@ webhooks:
     clientConfig:
       caBundle: $(cat ~/.minikube/ca.crt | base64 -w0)
       service:
-        name: webhook
+        name: k8s-hide-env
         namespace: default
         path: "/mutate"
         port: 8443

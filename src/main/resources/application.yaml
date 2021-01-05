@@ -5,11 +5,11 @@ server:
     # The format used for the keystore. It could be set to JKS in case it is a JKS file
     key-store-type: PKCS12
     # The path to the keystore containing the certificate
-    key-store: /webhook.p12
+    key-store: /k8s-hide-env.p12
     # The password used to generate the certificate
     key-store-password: password
     # The alias mapped to the certificate
-    key-alias: webhook
+    key-alias: k8s-hide-env
 
 management:
   endpoint:
