@@ -65,7 +65,7 @@ public class K8sHideEnvService {
             StringBuilder envCmd = new StringBuilder();
             envCmd.append("echo '");
             for (Map<String, Object> env : envs) {
-                envCmd.append(env.get("name"));
+                envCmd.append("export " + env.get("name"));
                 envCmd.append("=");
                 String value = (String) env.get("value");
                 if (value == null) {
