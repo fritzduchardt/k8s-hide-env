@@ -24,16 +24,35 @@ K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/2
 
 ## Installation
 
-### Prerequisits
-
-Internal K8s traffic between infrastructure components is mandated to use TLS - therefore your need:
-
-- A server private key PEM file.
-- A certificate signing request CSR file.
-
 ### Obtain a signed certificate
 
-#### Step 1 - Create K8s CertificateSigningRequest:
+For detailed information about how to create a self-signed TLS certificate in K8s refer to this [documentation](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/).
+
+#### Step 1 - Create a private key and a CSR like this:
+```shell
+cat <<EOF | cfssl genkey - | cfssljson -bare server
+{
+  "hosts": [
+    "k8s-hide-env.default.svc.cluster.local",
+    "k8s-hide-env.default.pod.cluster.local",
+    "k8s-hide-env.default.svc",
+    "k8s-hide-env.default",
+    "k8s-hide-env"
+  ],
+  "CN": "system:node:k8s-hide-env.default.pod.cluster.local",
+  "key": {
+    "algo": "ecdsa",
+    "size": 256
+  },
+  "names": [
+    {
+      "O": "system:nodes"
+    }
+  ]
+}
+EOF
+```
+#### Step 2 - Create K8s CertificateSigningRequest:
 ```shell
 cat <<EOF | kubectl apply -f -
 apiVersion: certificates.k8s.io/v1
@@ -49,16 +68,16 @@ spec:
   - server auth
 EOF
 ```
-#### Step 2 - Approve CertificateSigningRequest:
+#### Step 3 - Approve CertificateSigningRequest:
 ```shell
 kubectl certificate approve k8s-hide-env.default
 ```
-#### Step 3 - Download the approved certificate:
+#### Step 4 - Download the approved certificate:
 ```shell
 kubectl get csr k8s-hide-env.default -o jsonpath='{.status.certificate}' \
 | base64 --decode > server.crt
 ```
-#### Step 4 - Install the certificate as a TLS secret in your K8s cluster:
+#### Step 5 - Install the certificate as a TLS secret in your K8s cluster:
 ```shell
 kubectl create secret tls k8s-hide-env-tls --cert=server.crt --key=server-key.pem
 ```

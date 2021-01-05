@@ -14,7 +14,7 @@ spec:
      postStart:
        exec:
          command:
-           - bash
+           - sh
            - -c
            - openssl pkcs12 -passout pass:password -export -in /cert/tls.crt -inkey /cert/tls.key -out /k8s-hide-env.p12 -name k8s-hide-env -CAfile /run/secrets/kubernetes.io/serviceaccount/ca.crt -caname root
     volumeMounts:
