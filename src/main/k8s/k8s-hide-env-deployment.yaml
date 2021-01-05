@@ -7,6 +7,7 @@ metadata:
 spec:
   containers:
   - image: fritzduchardt/k8s-hide-env
+    imagePullPolicy: Always
     name: k8s-hide-env
     resources: {}
     lifecycle:
