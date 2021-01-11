@@ -63,9 +63,9 @@ public class K8sHideEnvService {
 
             // add init-containers to save envs in file
             StringBuilder envCmd = new StringBuilder();
-            envCmd.append("echo '");
+            envCmd.append("echo 'set -a\n");
             for (Map<String, Object> env : envs) {
-                envCmd.append("export " + env.get("name"));
+                envCmd.append(env.get("name"));
                 envCmd.append("=");
                 String value = (String) env.get("value");
                 if (value == null) {
