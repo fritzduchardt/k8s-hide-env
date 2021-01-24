@@ -38,14 +38,23 @@ public class K8sHideEnvService {
         Map<String, Object> outerSpec = extractMap(object, "spec");
         Map<String, Object> spec = extractMap(extractMap(outerSpec, "template"), "spec");
 
-        // add tmpfs volume to temporarily store credentials
         List<Map<String, Object>> volumes = new ArrayList<>();
-        Map<String, Object> volume = new HashMap<>();
-        volumes.add(volume);
-        volume.put("name", "k8s-hide-env");
-        volume.put("emptyDir", Map.of("medium", "Memory"));
+
+        // Add volumes
+        // add tmpfs tmpfsVolume to temporarily store credentials
+        Map<String, Object> tmpfsVolume = new HashMap<>();
+        volumes.add(tmpfsVolume);
+        tmpfsVolume.put("name", "k8s-hide-env");
+        tmpfsVolume.put("emptyDir", Map.of("medium", "Memory"));
+        // add script configmap scriptVolume
+        Map<String, Object> scriptVolume = new HashMap<>();
+        volumes.add(scriptVolume);
+        scriptVolume.put("name", "k8s-hide-env-script");
+        scriptVolume.put("configMap", Map.of("name", "k8s-hide-env", "defaultMode", 0700));
+
         if (spec.containsKey("volumes")) {
-            jsonPatches.add(createPatch("add", "/spec/template/spec/volumes/-", volume));
+            jsonPatches.add(createPatch("add", "/spec/template/spec/volumes/-", tmpfsVolume));
+            jsonPatches.add(createPatch("add", "/spec/template/spec/volumes/-", scriptVolume));
         } else {
             jsonPatches.add(createPatch("add", "/spec/template/spec/volumes", volumes));
         }
@@ -63,7 +72,7 @@ public class K8sHideEnvService {
 
             // add init-containers to save envs in file
             StringBuilder envCmd = new StringBuilder();
-            envCmd.append("echo 'set -a\n");
+            envCmd.append("echo 'set -a\\n");
             for (Map<String, Object> env : envs) {
                 envCmd.append(env.get("name"));
                 envCmd.append("=");
@@ -74,7 +83,7 @@ public class K8sHideEnvService {
                 envCmd.append(value);
                 envCmd.append("\\n");
             }
-            envCmd.append("' > /envs/hide-env-" + i + ".sh");
+            envCmd.append("' > /envs/hide-env-").append(i).append(".sh");
             List<String> sh = List.of("sh", "-c", envCmd.toString());
             List<Map<String, Object>> initContainers = new ArrayList<>();
             Map<String, Object> initContainer = new HashMap<>();
@@ -95,14 +104,23 @@ public class K8sHideEnvService {
                 jsonPatches.add(createPatch("add", "/spec/template/spec/initContainers", initContainers));
             }
 
-            // mount tmpfs volume into container
             List<Map<String, Object>> containerMounts = new ArrayList<>();
-            Map<String, Object> containerMount = new HashMap<>();
-            containerMounts.add(containerMount);
-            containerMount.put("mountPath", "/envs");
-            containerMount.put("name", "k8s-hide-env");
+            // container mounts
+            // mount tmpfs tmpfsVolume into container
+            Map<String, Object> tmpfsContainerMount = new HashMap<>();
+            containerMounts.add(tmpfsContainerMount);
+            tmpfsContainerMount.put("mountPath", "/envs");
+            tmpfsContainerMount.put("name", "k8s-hide-env");
+            // mount script config map tmpfsVolume into container
+            Map<String, Object> scriptContainerMount = new HashMap<>();
+            containerMounts.add(scriptContainerMount);
+            scriptContainerMount.put("mountPath", "/k8s-hide-env.sh");
+            scriptContainerMount.put("subPath", "k8s-hide-env.sh");
+            scriptContainerMount.put("name", "k8s-hide-env-script");
+
             if (container.containsKey("volumeMounts")) {
-                jsonPatches.add(createPatch("add", "/spec/template/spec/containers/" + i + "/volumeMounts/-", containerMount));
+                jsonPatches.add(createPatch("add", "/spec/template/spec/containers/" + i + "/volumeMounts/-", tmpfsContainerMount));
+                jsonPatches.add(createPatch("add", "/spec/template/spec/containers/" + i + "/volumeMounts/-", scriptContainerMount));
             } else {
                 jsonPatches.add(createPatch("add", "/spec/template/spec/containers/" + i + "/volumeMounts", containerMounts));
             }
@@ -117,7 +135,7 @@ public class K8sHideEnvService {
             if (newArgs.isEmpty()) {
                 throw new RuntimeException("Currently, work of image defaults. Need to specify command, args or both.");
             }
-            jsonPatches.add(createPatch("replace", "/spec/template/spec/containers/" + i + "/args", List.of(". /envs/hide-env-" + i + ".sh && rm /envs/hide-env-" + i + ".sh && "+  String.join(" ", newArgs))));
+            jsonPatches.add(createPatch("replace", "/spec/template/spec/containers/" + i + "/args", List.of("/k8s-hide-env.sh /envs/hide-env-" + i + ".sh '" +  String.join(" ", newArgs) + "'")));
 
             // delete container envs
             jsonPatches.add(createRemovePatch("/spec/template/spec/containers/" + i + "/env"));
@@ -144,7 +162,7 @@ public class K8sHideEnvService {
         if (oldCommands.size() > 1 && oldCommands.get(0).equals("sh") && oldCommands.get(1).equals("-c")) {
             filteredOldCommands = oldCommands.stream().skip(2).collect(Collectors.toList());
         } else {
-            filteredOldCommands = oldCommands.stream().collect(Collectors.toList());
+            filteredOldCommands = new ArrayList<>(oldCommands);
         }
         filteredOldCommands.forEach(command -> {
             if (command.equals("sh")) {
@@ -162,11 +180,13 @@ public class K8sHideEnvService {
         return Map.of("op", op, "path", path, "value", value);
     }
 
+    @SuppressWarnings({"unchecked"})
     private <T> List<T> extractList(Map<String, Object> container, String key) {
         List<T> strings = (List<T>) container.get(key);
         return strings == null ? List.of() : strings;
     }
 
+    @SuppressWarnings({"unchecked"})
     private <K, O> Map<K, O> extractMap(Map<String, Object> container, String key) {
         Map<K, O> mapList = (Map<K, O>) container.get(key);
         return mapList == null ? Map.of() : mapList;

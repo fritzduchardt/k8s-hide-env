@@ -82,9 +82,11 @@ kubectl get csr k8s-hide-env.default -o jsonpath='{.status.certificate}' \
 kubectl create secret tls k8s-hide-env-tls --cert=server.crt --key=server-key.pem
 ```
 
+##ä Install the K8s Hide Env script in a
 ### Install K8s Hide Env
 ```shell
 kubectl apply -f src/main/k8s/service.yaml
+kubectl apply -f src/main/k8s/k8s-hide-env-configmap.yaml
 kubectl apply -f src/main/k8s/k8s-hide-env-deployment.yaml
 ```
 
