@@ -21,12 +21,77 @@ spec:
           name: k8s-showcase-application
           resources:
             requests:
-              cpu: 500m
+              cpu: 300m
               memory: 256Mi
           command:
-            - java
-            - -jar
-            - k8sshowcase.jar
+            - sh
+            - -c
+          args:
+            - "java -jar k8sshowcase.jar"
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: nodb
+            - name: MESSAGE
+              value: Test
+        - image: fritzduchardt/k8s-showcase-application:latest
+          imagePullPolicy: Always
+          name: k8s-showcase-application-2
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+          command:
+            - sh
+            - -c
+            - "java -jar k8sshowcase.jar"
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: nodb
+            - name: MESSAGE
+              value: Test
+        - image: fritzduchardt/k8s-showcase-application:latest
+          imagePullPolicy: Always
+          name: k8s-showcase-application-3
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+          command:
+            - "java"
+            - "-jar"
+            - "k8sshowcase.jar"
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: nodb
+            - name: MESSAGE
+              value: Test
+        - image: fritzduchardt/k8s-showcase-application:latest
+          imagePullPolicy: Always
+          name: k8s-showcase-application-4
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+          args:
+            - "java"
+            - "-jar"
+            - "k8sshowcase.jar"
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: nodb
+            - name: MESSAGE
+              value: Test
+        - image: fritzduchardt/k8s-showcase-application:latest
+          imagePullPolicy: Always
+          name: k8s-showcase-application-5
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+          args:
+            - "sh"
+            - "-c"
+            - "java -jar k8sshowcase.jar"
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: nodb

@@ -2,7 +2,7 @@
   "kind": "AdmissionReview",
   "apiVersion": "admission.k8s.io/v1",
   "request": {
-    "uid": "64e36d92-4c67-42e3-ad14-329345df4042",
+    "uid": "33366c66-4a7f-4b3a-a26e-903645143895",
     "kind": {
       "group": "apps",
       "version": "v1",
@@ -49,7 +49,7 @@
             "manager": "kubectl-replace",
             "operation": "Update",
             "apiVersion": "apps/v1",
-            "time": "2020-12-28T10:06:39Z",
+            "time": "2021-02-07T10:20:08Z",
             "fieldsType": "FieldsV1",
             "fieldsV1": {
               "f:metadata": {
@@ -88,7 +88,128 @@
                     "f:containers": {
                       "k:{\"name\":\"k8s-showcase-application\"}": {
                         ".": {},
+                        "f:args": {},
                         "f:command": {},
+                        "f:env": {
+                          ".": {},
+                          "k:{\"name\":\"MESSAGE\"}": {
+                            ".": {},
+                            "f:name": {},
+                            "f:value": {}
+                          },
+                          "k:{\"name\":\"SPRING_PROFILES_ACTIVE\"}": {
+                            ".": {},
+                            "f:name": {},
+                            "f:value": {}
+                          }
+                        },
+                        "f:image": {},
+                        "f:imagePullPolicy": {},
+                        "f:name": {},
+                        "f:resources": {
+                          ".": {},
+                          "f:requests": {
+                            ".": {},
+                            "f:cpu": {},
+                            "f:memory": {}
+                          }
+                        },
+                        "f:terminationMessagePath": {},
+                        "f:terminationMessagePolicy": {}
+                      },
+                      "k:{\"name\":\"k8s-showcase-application-2\"}": {
+                        ".": {},
+                        "f:command": {},
+                        "f:env": {
+                          ".": {},
+                          "k:{\"name\":\"MESSAGE\"}": {
+                            ".": {},
+                            "f:name": {},
+                            "f:value": {}
+                          },
+                          "k:{\"name\":\"SPRING_PROFILES_ACTIVE\"}": {
+                            ".": {},
+                            "f:name": {},
+                            "f:value": {}
+                          }
+                        },
+                        "f:image": {},
+                        "f:imagePullPolicy": {},
+                        "f:name": {},
+                        "f:resources": {
+                          ".": {},
+                          "f:requests": {
+                            ".": {},
+                            "f:cpu": {},
+                            "f:memory": {}
+                          }
+                        },
+                        "f:terminationMessagePath": {},
+                        "f:terminationMessagePolicy": {}
+                      },
+                      "k:{\"name\":\"k8s-showcase-application-3\"}": {
+                        ".": {},
+                        "f:command": {},
+                        "f:env": {
+                          ".": {},
+                          "k:{\"name\":\"MESSAGE\"}": {
+                            ".": {},
+                            "f:name": {},
+                            "f:value": {}
+                          },
+                          "k:{\"name\":\"SPRING_PROFILES_ACTIVE\"}": {
+                            ".": {},
+                            "f:name": {},
+                            "f:value": {}
+                          }
+                        },
+                        "f:image": {},
+                        "f:imagePullPolicy": {},
+                        "f:name": {},
+                        "f:resources": {
+                          ".": {},
+                          "f:requests": {
+                            ".": {},
+                            "f:cpu": {},
+                            "f:memory": {}
+                          }
+                        },
+                        "f:terminationMessagePath": {},
+                        "f:terminationMessagePolicy": {}
+                      },
+                      "k:{\"name\":\"k8s-showcase-application-4\"}": {
+                        ".": {},
+                        "f:args": {},
+                        "f:env": {
+                          ".": {},
+                          "k:{\"name\":\"MESSAGE\"}": {
+                            ".": {},
+                            "f:name": {},
+                            "f:value": {}
+                          },
+                          "k:{\"name\":\"SPRING_PROFILES_ACTIVE\"}": {
+                            ".": {},
+                            "f:name": {},
+                            "f:value": {}
+                          }
+                        },
+                        "f:image": {},
+                        "f:imagePullPolicy": {},
+                        "f:name": {},
+                        "f:resources": {
+                          ".": {},
+                          "f:requests": {
+                            ".": {},
+                            "f:cpu": {},
+                            "f:memory": {}
+                          }
+                        },
+                        "f:terminationMessagePath": {},
+                        "f:terminationMessagePolicy": {}
+                      },
+                      "k:{\"name\":\"k8s-showcase-application-5\"}": {
+                        ".": {},
+                        "f:args": {},
                         "f:env": {
                           ".": {},
                           "k:{\"name\":\"MESSAGE\"}": {
@@ -130,7 +251,7 @@
         ]
       },
       "spec": {
-        "replicas": 2,
+        "replicas": 1,
         "selector": {
           "matchLabels": {
             "app": "k8sshowcase"
@@ -149,9 +270,123 @@
                 "name": "k8s-showcase-application",
                 "image": "fritzduchardt/k8s-showcase-application:latest",
                 "command": [
+                    "sh",
+                    "-c"
+                ],
+                "args": [
+                    "java -jar k8sshowcase.jar"
+                ],
+                "env": [
+                  {
+                    "name": "SPRING_PROFILES_ACTIVE",
+                    "value": "nodb"
+                  },
+                  {
+                    "name": "MESSAGE",
+                    "value": "Test"
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "500m",
+                    "memory": "256Mi"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "imagePullPolicy": "Always"
+              },
+              {
+                "name": "k8s-showcase-application-2",
+                "image": "fritzduchardt/k8s-showcase-application:latest",
+                "command": [
+                    "sh",
+                    "-c",
+                    "java -jar k8sshowcase.jar"
+                ],
+                "env": [
+                  {
+                    "name": "SPRING_PROFILES_ACTIVE",
+                    "value": "nodb"
+                  },
+                  {
+                    "name": "MESSAGE",
+                    "value": "Test"
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "500m",
+                    "memory": "256Mi"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "imagePullPolicy": "Always"
+              },
+              {
+                "name": "k8s-showcase-application-3",
+                "image": "fritzduchardt/k8s-showcase-application:latest",
+                "command": [
                     "java",
                     "-jar",
                     "k8sshowcase.jar"
+                ],
+                "env": [
+                  {
+                    "name": "SPRING_PROFILES_ACTIVE",
+                    "value": "nodb"
+                  },
+                  {
+                    "name": "MESSAGE",
+                    "value": "Test"
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "500m",
+                    "memory": "256Mi"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "imagePullPolicy": "Always"
+              },
+              {
+                "name": "k8s-showcase-application-4",
+                "image": "fritzduchardt/k8s-showcase-application:latest",
+                "args": [
+                    "java",
+                    "-jar",
+                    "k8sshowcase.jar"
+                ],
+                "env": [
+                  {
+                    "name": "SPRING_PROFILES_ACTIVE",
+                    "value": "nodb"
+                  },
+                  {
+                    "name": "MESSAGE",
+                    "value": "Test"
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "500m",
+                    "memory": "256Mi"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "imagePullPolicy": "Always"
+              },
+              {
+                "name": "k8s-showcase-application-5",
+                "image": "fritzduchardt/k8s-showcase-application:latest",
+                "args": [
+                    "sh",
+                    "-c",
+                    "java -jar k8sshowcase.jar"
                 ],
                 "env": [
                   {

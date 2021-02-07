@@ -2,6 +2,7 @@ package com.fduchardt.k8shideenv.service;
 
 import com.google.gson.*;
 import lombok.extern.slf4j.*;
+import org.springframework.beans.factory.annotation.*;
 import org.springframework.stereotype.*;
 import org.yaml.snakeyaml.*;
 
@@ -13,8 +14,13 @@ import java.util.stream.*;
 @Slf4j
 public class K8sHideEnvService {
 
-    Yaml yaml = new Yaml();
-    Gson gson = new Gson();
+    private final Yaml yaml = new Yaml();
+    private final Gson gson = new Gson();
+    private final CommandAndArgsUtils commandAndArgsUtils;
+
+    public K8sHideEnvService(CommandAndArgsUtils commandAndArgsUtils) {
+        this.commandAndArgsUtils = commandAndArgsUtils;
+    }
 
     public String createAdmissionResponse(String admissionRequestJson) {
 
@@ -38,27 +44,6 @@ public class K8sHideEnvService {
         Map<String, Object> outerSpec = extractMap(object, "spec");
         Map<String, Object> spec = extractMap(extractMap(outerSpec, "template"), "spec");
 
-        List<Map<String, Object>> volumes = new ArrayList<>();
-
-        // Add volumes
-        // add tmpfs tmpfsVolume to temporarily store credentials
-        Map<String, Object> tmpfsVolume = new HashMap<>();
-        volumes.add(tmpfsVolume);
-        tmpfsVolume.put("name", "k8s-hide-env");
-        tmpfsVolume.put("emptyDir", Map.of("medium", "Memory"));
-        // add script configmap scriptVolume
-        Map<String, Object> scriptVolume = new HashMap<>();
-        volumes.add(scriptVolume);
-        scriptVolume.put("name", "k8s-hide-env-script");
-        scriptVolume.put("configMap", Map.of("name", "k8s-hide-env", "defaultMode", 0700));
-
-        if (spec.containsKey("volumes")) {
-            jsonPatches.add(createPatch("add", "/spec/template/spec/volumes/-", tmpfsVolume));
-            jsonPatches.add(createPatch("add", "/spec/template/spec/volumes/-", scriptVolume));
-        } else {
-            jsonPatches.add(createPatch("add", "/spec/template/spec/volumes", volumes));
-        }
-
         // iterate over containers
         List<Map<String, Object>> containers = extractList(spec, "containers");
         for (int i = 0; i < containers.size(); i++) {
@@ -67,13 +52,14 @@ public class K8sHideEnvService {
             // no envs, no action required
             List<Map<String, Object>> envs = extractList(container, "env");
             if (envs.isEmpty()) {
-                break;
+                continue;
             }
 
             // add init-containers to save envs in file
-            StringBuilder envCmd = new StringBuilder();
-            envCmd.append("echo 'set -a\\n");
+            List<String> envCommands = new ArrayList<>();
+            envCommands.add("env");
             for (Map<String, Object> env : envs) {
+                StringBuilder envCmd = new StringBuilder();
                 envCmd.append(env.get("name"));
                 envCmd.append("=");
                 String value = (String) env.get("value");
@@ -81,61 +67,15 @@ public class K8sHideEnvService {
                     throw new RuntimeException("Currently, only support environment values written straight to the deployment definition.");
                 }
                 envCmd.append(value);
-                envCmd.append("\\n");
+                envCommands.add(envCmd.toString());
             }
-            envCmd.append("' > /envs/hide-env-").append(i).append(".sh");
-            List<String> sh = List.of("sh", "-c", envCmd.toString());
-            List<Map<String, Object>> initContainers = new ArrayList<>();
-            Map<String, Object> initContainer = new HashMap<>();
-            initContainers.add(initContainer);
-            initContainer.put("command", sh);
-            initContainer.put("name", "k8s-hide-env-" + i);
-            initContainer.put("image", "ubuntu");
-            List<Map<String, Object>> volumeMounts = new ArrayList<>();
-            initContainer.put("volumeMounts", volumeMounts);
-            Map<String, Object> volumeMount = new HashMap<>();
-            initContainer.put("volumeMounts", volumeMounts);
-            volumeMount.put("mountPath", "/envs");
-            volumeMount.put("name", "k8s-hide-env");
-            volumeMounts.add(volumeMount);
-            if (spec.containsKey("initContainers") || i > 0) {
-                jsonPatches.add(createPatch("add", "/spec/template/spec/initContainers/-", initContainer));
-            } else {
-                jsonPatches.add(createPatch("add", "/spec/template/spec/initContainers", initContainers));
-            }
+            envCommands.add("sh");
+            envCommands.add("-c");
 
-            List<Map<String, Object>> containerMounts = new ArrayList<>();
-            // container mounts
-            // mount tmpfs tmpfsVolume into container
-            Map<String, Object> tmpfsContainerMount = new HashMap<>();
-            containerMounts.add(tmpfsContainerMount);
-            tmpfsContainerMount.put("mountPath", "/envs");
-            tmpfsContainerMount.put("name", "k8s-hide-env");
-            // mount script config map tmpfsVolume into container
-            Map<String, Object> scriptContainerMount = new HashMap<>();
-            containerMounts.add(scriptContainerMount);
-            scriptContainerMount.put("mountPath", "/k8s-hide-env.sh");
-            scriptContainerMount.put("subPath", "k8s-hide-env.sh");
-            scriptContainerMount.put("name", "k8s-hide-env-script");
-
-            if (container.containsKey("volumeMounts")) {
-                jsonPatches.add(createPatch("add", "/spec/template/spec/containers/" + i + "/volumeMounts/-", tmpfsContainerMount));
-                jsonPatches.add(createPatch("add", "/spec/template/spec/containers/" + i + "/volumeMounts/-", scriptContainerMount));
-            } else {
-                jsonPatches.add(createPatch("add", "/spec/template/spec/containers/" + i + "/volumeMounts", containerMounts));
-            }
-
-            // overwrite container command with "sh"
-            jsonPatches.add(createPatch("replace", "/spec/template/spec/containers/" + i + "/command", List.of("sh", "-c")));
-
-            // add sourcing of env files to container args
-            List<String> commands = filterShell(extractList(container, "command"));
-            List<String> args = filterShell(extractList(container, "args"));
-            List<String> newArgs = Stream.concat(commands.stream(), args.stream()).collect(Collectors.toList());
-            if (newArgs.isEmpty()) {
-                throw new RuntimeException("Currently, work of image defaults. Need to specify command, args or both.");
-            }
-            jsonPatches.add(createPatch("replace", "/spec/template/spec/containers/" + i + "/args", List.of("/k8s-hide-env.sh /envs/hide-env-" + i + ".sh '" +  String.join(" ", newArgs) + "'")));
+            List<String> commands = extractList(container, "command");
+            List<String> args = extractList(container, "args");
+            jsonPatches.add(createPatch(commands.isEmpty() ? "add" : "replace", "/spec/template/spec/containers/" + i + "/command", envCommands));
+            jsonPatches.add(createPatch(args.isEmpty() ? "add" : "replace", "/spec/template/spec/containers/" + i + "/args", List.of(commandAndArgsUtils.reconcile(commands, args))));
 
             // delete container envs
             jsonPatches.add(createRemovePatch("/spec/template/spec/containers/" + i + "/env"));
@@ -155,21 +95,6 @@ public class K8sHideEnvService {
         admissionResponse.put("patch", Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8)));
 
         return yaml.dump(admissionReviewReturn);
-    }
-
-    private List<String> filterShell(List<String> oldCommands) {
-        List<String> filteredOldCommands;
-        if (oldCommands.size() > 1 && oldCommands.get(0).equals("sh") && oldCommands.get(1).equals("-c")) {
-            filteredOldCommands = oldCommands.stream().skip(2).collect(Collectors.toList());
-        } else {
-            filteredOldCommands = new ArrayList<>(oldCommands);
-        }
-        filteredOldCommands.forEach(command -> {
-            if (command.equals("sh")) {
-                throw new RuntimeException("Currently can't handle nested shell commands.");
-            }
-        });
-        return filteredOldCommands;
     }
 
     private Map<String, Object> createRemovePatch(String path) {

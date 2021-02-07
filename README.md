@@ -6,13 +6,7 @@ By default, K8s exposes environment variables in the container environment. This
 
 ## How it works
 
-K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) in your K8s cluster, which in a nut-shell **moves your container environment variables to an in-memory file that is sourced by the shell that starts the main process and then deleted**. In detail, the following changes are made to the K8s manifests of your *Deployments*, *Daemonsets* or *StatefulSets*:
-
-1. Add an in-memory empty directory to the Pod template.
-2. Add an init container for each Pod container that writes the container env variables to a file. This file is written to the in-memory directory.
-3. Mount the in-memory directory into each container.
-4. Amend the container startup command to first source the env variables from that file, before starting the container main process. The file is deleted immediately after sourcing.
-5. Remove all environment variables from the K8s manifest.
+K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) in your K8s cluster, which in a nut-shell **extracts your container environment variables from the K8s manifest and adds them exclusively to the shell that starts the main process by amending container *command* and *args*. Then environment variables are deleted from K8s manifest**.
 
 ## Limitations
 
@@ -92,7 +86,7 @@ kubectl apply -f src/main/k8s/k8s-hide-env-deployment.yaml
 
 ### Create the Webhook
 
-Please note that here you have to provide the K8s cluster root certificate to validate TLS connections. E.g. with Minikube, this can be done as follows:
+Please note that here you have to provide the root certificate your server certs were signed with to validate TLS connections. Since in this Howto, we let K8s do the signing with the Minikube root certificate, let's provide the Minikube root certificate to the web hook configuration:
 
 ```shell
 cat <<EOF | kubectl replace --force -f -

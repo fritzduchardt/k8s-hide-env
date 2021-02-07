@@ -13,7 +13,7 @@ import java.nio.file.*;
 @Profile("test")
 class K8sHideEnvServiceTest {
 
-    K8sHideEnvService underTest = new K8sHideEnvService();
+    K8sHideEnvService underTest = new K8sHideEnvService(new CommandAndArgsUtils());
 
     @Test
     public void test() throws URISyntaxException, IOException {
