@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: k8s-hide-env
+  name: k8s-hide-env
+spec:
+  selector:
+    matchLabels:
+      app: k8s-hide-env
+  template:
+    metadata:
+      labels:
+        app: k8s-hide-env
+    spec:
+      containers:
+      - image: fritzduchardt/k8s-hide-env
+        name: k8s-hide-env
+        lifecycle:
+         postStart:
+           exec:
+             command:
+               - sh
+               - -c
+               - openssl pkcs12 -passout pass:password -export -in /cert/tls.crt -inkey /cert/tls.key -out /k8s-hide-env.p12 -name k8s-hide-env -CAfile /run/secrets/kubernetes.io/serviceaccount/ca.crt -caname root
+        volumeMounts:
+          - mountPath: /cert
+            name: cert
+      volumes:
+      - name: cert
+        secret:
+          secretName: k8s-hide-env-tls
+      restartPolicy: Always
