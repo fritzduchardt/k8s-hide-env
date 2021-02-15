@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - image: fritzduchardt/k8s-showcase-application:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           name: k8s-showcase-application
           resources:
             requests:

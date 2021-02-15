@@ -22,60 +22,42 @@ K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/2
 
 For detailed information about how to create a self-signed TLS certificate in K8s refer to this [documentation](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/).
 
-#### Step 1 - Create a private key and a CSR like this:
-```shell
-cat <<EOF | cfssl genkey - | cfssljson -bare server
-{
-  "hosts": [
-    "k8s-hide-env.default.svc.cluster.local",
-    "k8s-hide-env.default.pod.cluster.local",
-    "k8s-hide-env.default.svc",
-    "k8s-hide-env.default",
-    "k8s-hide-env"
-  ],
-  "CN": "system:node:k8s-hide-env.default.pod.cluster.local",
-  "key": {
-    "algo": "ecdsa",
-    "size": 256
-  },
-  "names": [
-    {
-      "O": "system:nodes"
-    }
-  ]
-}
-EOF
-```
-#### Step 2 - Create K8s CertificateSigningRequest:
-```shell
-cat <<EOF | kubectl apply -f -
-apiVersion: certificates.k8s.io/v1
-kind: CertificateSigningRequest
-metadata:
-  name: k8s-hide-env.default
-spec:
-  request: $(cat server.csr | base64 | tr -d '\n')
-  signerName: kubernetes.io/kubelet-serving
-  usages:
-  - digital signature
-  - key encipherment
-  - server auth
-EOF
-```
-#### Step 3 - Approve CertificateSigningRequest:
-```shell
-kubectl certificate approve k8s-hide-env.default
-```
-#### Step 4 - Download the approved certificate:
-```shell
-kubectl get csr k8s-hide-env.default -o jsonpath='{.status.certificate}' \
-| base64 --decode > server.crt
-```
-#### Step 5 - Install the certificate as a TLS secret in your K8s cluster:
-```shell
-kubectl create secret tls k8s-hide-env-tls --cert=server.crt --key=server-key.pem
-```
+Alternatively, you can use [cert-manager](https://cert-manager.io/) which is a bit easier. Below we describe how to go ahead with cert-manager and a [SelfSigned Issuer](https://cert-manager.io/docs/configuration/selfsigned/). 
 
+#### Create a Self-Signed Certificate with CertManager like that:
+```shell
+kubectl create -f -<<EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: k8s-hide-env
+  namespace: default
+spec:
+  # Secret names are always required.
+  secretName: k8s-hide-env-tls
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  subject:
+    organizations:
+    - github
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+  - k8s-hide-env.default.svc.cluster.local
+  - k8s-hide-env.default.svc
+  - k8s-hide-env.default
+  - k8s-hide-env
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+EOF
+```
 ### Install K8s Hide Env
 ```shell
 kubectl apply -f src/main/k8s/service.yaml
@@ -103,7 +85,7 @@ webhooks:
       matchLabels:
         mode: secure
     clientConfig:
-      caBundle: $(cat ~/.minikube/ca.crt | base64 -w0)
+      caBundle: $(kubectl get secret k8s-hide-env-tls -o jsonpath='{.data.ca\.crt}')
       service:
         name: k8s-hide-env
         namespace: default
@@ -145,7 +127,7 @@ The following commands will remove all traces of K8s-hide-env from your cluster:
 kubectl delete mutatingwebhookconfigurations k8s-hide-env
 kubectl delete deploy k8s-hide-env
 kubectl delete svc k8s-hide-env
-kubectl delete secret k8s-hide-env-tls
+#kubectl delete secret k8s-hide-env-tls
 ```
 
 ## Feedback
