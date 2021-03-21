@@ -1,14 +1,9 @@
-# Creates Spring Boot Fat Jar
-FROM openjdk:14-alpine
-LABEL maintainer="fduchardt"
-COPY . .
-RUN ./gradlew bootJar
-RUN mv ./build/libs/*.jar ./build/libs/k8s-hide-env.jar
+FROM golang:1.16.2
+WORKDIR /go/src/github.com/fritzduchardt/k8shideenv/
+RUN go get -d -v gopkg.in/yaml.v2
+COPY src/main/go/k8shideenv  .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
-# Debian container with kubectl and Java
-FROM openjdk:14-alpine
-LABEL maintainer="fduchardt"
-RUN apk add --update openssl && \
-    rm -rf /var/cache/apk/*
-COPY --from=0 /build/libs/k8s-hide-env.jar ./
-CMD java -jar k8s-hide-env.jar
+FROM alpine:latest
+COPY --from=0 /go/src/github.com/fritzduchardt/k8shideenv/app .
+CMD ["./app"]  

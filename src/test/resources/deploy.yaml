@@ -31,5 +31,5 @@ spec:
             - name: SPRING_PROFILES_ACTIVE
               value: nodb
             - name: MESSAGE
-              value: Test
+              value: ICanSeeYou
 

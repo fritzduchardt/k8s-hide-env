@@ -43,7 +43,7 @@
         "labels": {
           "app": "k8sshowcase",
           "mode": "secure"
-        },
+        }
       },
       "spec": {
         "replicas": 1,
