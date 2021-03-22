@@ -5,6 +5,6 @@ COPY src/main/go/k8shideenv  .
 #RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -tags netgo -ldflags '-w -extldflags "-static"' -o app *.go
 RUN go build -o app *.go
 
-FROM scratch
+FROM golang:1.16.2
 COPY --from=builder /go/src/github.com/fritzduchardt/k8shideenv/app .
 CMD ["./app"]  
