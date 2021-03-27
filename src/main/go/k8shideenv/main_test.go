@@ -2,7 +2,6 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
 	"testing"
 )
 
@@ -12,8 +11,12 @@ func TestCreateAdmissionResponse(t *testing.T) {
 		t.Errorf("Can't open file: %v", err)
 	}
 	response, err := createAdmissionResponse(string(json))
-	log.Printf(response, nil)
+	if err != nil {
+		t.Errorf("%+v", err)
+		return
+	}
 	if response == "" {
 		t.Errorf("Invalid response %v", response)
+		return
 	}
 }

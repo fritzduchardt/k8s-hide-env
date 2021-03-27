@@ -2,7 +2,7 @@
   "kind": "AdmissionReview",
   "apiVersion": "admission.k8s.io/v1",
   "request": {
-    "uid": "33366c66-4a7f-4b3a-a26e-903645143895",
+    "uid": "03ae0d69-bdd4-4cb6-b205-5f811a24145c",
     "kind": {
       "group": "apps",
       "version": "v1",
@@ -65,11 +65,9 @@
                 "name": "k8s-showcase-application",
                 "image": "fritzduchardt/k8s-showcase-application:latest",
                 "command": [
-                    "sh",
-                    "-c"
-                ],
-                "args": [
-                    "java -jar k8sshowcase.jar"
+                    "java",
+                    "-jar",
+                    "k8sshowcase.jar"
                 ],
                 "env": [
                   {
@@ -78,18 +76,18 @@
                   },
                   {
                     "name": "MESSAGE",
-                    "value": "Test"
+                    "value": "ICanSeeYou"
                   }
                 ],
                 "resources": {
                   "requests": {
-                    "cpu": "500m",
+                    "cpu": "300m",
                     "memory": "256Mi"
                   }
                 },
                 "terminationMessagePath": "/dev/termination-log",
                 "terminationMessagePolicy": "File",
-                "imagePullPolicy": "Always"
+                "imagePullPolicy": "IfNotPresent"
               }
             ],
             "restartPolicy": "Always",
@@ -102,8 +100,8 @@
         "strategy": {
           "type": "RollingUpdate",
           "rollingUpdate": {
-            "maxUnavailable": "25%",
-            "maxSurge": "25%"
+            "maxUnavailable": "25%!",
+            "maxSurge": "25%!"
           }
         },
         "revisionHistoryLimit": 10,

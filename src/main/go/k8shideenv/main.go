@@ -31,7 +31,7 @@ func mutateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	admissionResponseJson, err := createAdmissionResponse(string(body))
 	if err != nil {
-		log.Printf("Failed to unmarshal admission request: %v", err)
+		log.Fatalf("Failed to unmarshal admission request: %v", err)
 		http.Error(w, "Failed to unmarshal admission request", http.StatusBadRequest)
 	}
 	_, err = fmt.Fprintf(w, admissionResponseJson)
@@ -42,13 +42,12 @@ func mutateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createAdmissionResponse(admissionRequestJson string) (string, error) {
-
 	var jsonPatches []map[string]interface{}
 
 	var admissionRequest map[string]interface{}
 	err := json.Unmarshal([]byte(admissionRequestJson), &admissionRequest)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failure to unmarshal admission request: %w", err)
 	}
 	request := extractMap(admissionRequest, "request")
 	object := extractMap(request, "object")
@@ -119,8 +118,9 @@ func createAdmissionResponse(admissionRequestJson string) (string, error) {
 	}
 	log.Printf(string(json))
 	admissionResponse["patch"] = b64.StdEncoding.EncodeToString(json)
-	d, err := yaml.Marshal(&admissionReviewReturn)
-	return string(d), nil
+	admissionResponseJson, err := yaml.Marshal(&admissionReviewReturn)
+	log.Printf(string(admissionResponseJson))
+	return string(admissionResponseJson), nil
 }
 
 func createRemovePatch(path string) map[string]interface{} {
@@ -151,12 +151,12 @@ func extractList(container map[string]interface{}, key string) []map[string]inte
 }
 
 func extractStringList(container map[string]interface{}, key string) []string {
-	values := container[key].([]interface{})
+	values := container[key]
 	if values == nil {
 		return nil
 	}
 	var retVal []string
-	for _, val := range values {
+	for _, val := range values.([]interface{}) {
 		retVal = append(retVal, val.(string))
 	}
 	return retVal
