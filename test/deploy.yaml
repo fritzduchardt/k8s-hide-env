@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: k8sshowcase
+    mode: secure
+  name: k8sshowcase
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8sshowcase
+  template:
+    metadata:
+      labels:
+        app: k8sshowcase
+    spec:
+      containers:
+        - image: fritzduchardt/k8s-showcase-application:latest
+          imagePullPolicy: IfNotPresent
+          name: k8s-showcase-application
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+          command:
+            - java
+            - -jar
+            - k8sshowcase.jar
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: nodb
+            - name: MESSAGE
+              value: ICanSeeYou
+        - image: fritzduchardt/k8s-showcase-application:latest
+          imagePullPolicy: IfNotPresent
+          name: k8s-showcase-application-2
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+          command:
+            - sh
+            - -c
+            - java -jar k8sshowcase.jar
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: nodb
+            - name: MESSAGE
+              value: ICanSeeYou
+        - image: fritzduchardt/k8s-showcase-application:latest
+          imagePullPolicy: IfNotPresent
+          name: k8s-showcase-application-3
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+          command:
+            - sh
+            - -c
+          args:
+            - java -jar k8sshowcase.jar
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: nodb
+            - name: MESSAGE
+              value: ICanSeeYou
+        - image: fritzduchardt/k8s-showcase-application:latest
+          imagePullPolicy: IfNotPresent
+          name: k8s-showcase-application-4
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+          args:
+            - sh
+            - -c
+            - java -jar k8sshowcase.jar
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: nodb
+            - name: MESSAGE
+              value: ICanSeeYou
+

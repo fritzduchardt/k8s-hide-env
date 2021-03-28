@@ -1,0 +1,120 @@
+{
+  "kind": "AdmissionReview",
+  "apiVersion": "admission.k8s.io/v1",
+  "request": {
+    "uid": "03ae0d69-bdd4-4cb6-b205-5f811a24145c",
+    "kind": {
+      "group": "apps",
+      "version": "v1",
+      "kind": "Deployment"
+    },
+    "resource": {
+      "group": "apps",
+      "version": "v1",
+      "resource": "deployments"
+    },
+    "requestKind": {
+      "group": "apps",
+      "version": "v1",
+      "kind": "Deployment"
+    },
+    "requestResource": {
+      "group": "apps",
+      "version": "v1",
+      "resource": "deployments"
+    },
+    "name": "k8sshowcase",
+    "namespace": "default",
+    "operation": "CREATE",
+    "userInfo": {
+      "username": "minikube-user",
+      "groups": [
+          "system:masters",
+          "system:authenticated"
+      ]
+    },
+    "object": {
+      "kind": "Deployment",
+      "apiVersion": "apps/v1",
+      "metadata": {
+        "name": "k8sshowcase",
+        "namespace": "default",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "k8sshowcase",
+          "mode": "secure"
+        }
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "k8sshowcase"
+          }
+        },
+        "template": {
+          "metadata": {
+            "creationTimestamp": null,
+            "labels": {
+              "app": "k8sshowcase"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "name": "k8s-showcase-application",
+                "image": "fritzduchardt/k8s-showcase-application:latest",
+                "command": [
+                    "java",
+                    "-jar",
+                    "k8sshowcase.jar"
+                ],
+                "env": [
+                  {
+                    "name": "SPRING_PROFILES_ACTIVE",
+                    "value": "nodb"
+                  },
+                  {
+                    "name": "MESSAGE",
+                    "value": "ICanSeeYou"
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "300m",
+                    "memory": "256Mi"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "imagePullPolicy": "IfNotPresent"
+              }
+            ],
+            "restartPolicy": "Always",
+            "terminationGracePeriodSeconds": 30,
+            "dnsPolicy": "ClusterFirst",
+            "securityContext": {},
+            "schedulerName": "default-scheduler"
+          }
+        },
+        "strategy": {
+          "type": "RollingUpdate",
+          "rollingUpdate": {
+            "maxUnavailable": "25%!",
+            "maxSurge": "25%!"
+          }
+        },
+        "revisionHistoryLimit": 10,
+        "progressDeadlineSeconds": 600
+      },
+      "status": {}
+    },
+    "oldObject": null,
+    "dryRun": false,
+    "options": {
+      "kind": "CreateOptions",
+      "apiVersion": "meta.k8s.io/v1",
+      "fieldManager": "kubectl-replace"
+    }
+  }
+}
