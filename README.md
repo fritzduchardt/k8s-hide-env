@@ -60,8 +60,8 @@ EOF
 ```
 ### Install K8s Hide Env
 ```shell
-kubectl apply -f src/main/k8s/service.yaml
-kubectl apply -f src/main/k8s/deployment.yaml
+kubectl apply -f deployment/service.yaml
+kubectl apply -f deployment/deployment.yaml
 ```
 
 ### Create the Webhook
@@ -104,7 +104,7 @@ EOF
 
 Now, install a *Deployment* to your cluster, e.g. the [K8s Showcase App](https://github.com/fritzduchardt/k8s-showcase-application):
 ```shell
-kubectl apply -f src/test/resources/deploy.yaml
+kubectl apply -f test/deploy.yaml
 ```
 Note, that when looking at the container environment, the environment variable `MESSAGE` is not visible:
 ```shell
