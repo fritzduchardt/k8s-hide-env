@@ -127,7 +127,7 @@ The following commands will remove all traces of K8s-hide-env from your cluster:
 kubectl delete mutatingwebhookconfigurations k8s-hide-env
 kubectl delete deploy k8s-hide-env
 kubectl delete svc k8s-hide-env
-#kubectl delete secret k8s-hide-env-tls
+kubectl delete secret k8s-hide-env-tls
 ```
 
 ## Feedback
