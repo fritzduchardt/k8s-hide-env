@@ -117,7 +117,7 @@ However, the app has an endpoint to expose environment variables and here `MESSA
 kubectl port-forward k8sshowcase-76cd657458-fm8k5 8080
 # curl env endpoint
 curl localhost:8080/env/MESSAGE
-> Test
+> ICanSeeYou
 ```
 ## Uninstall
 
