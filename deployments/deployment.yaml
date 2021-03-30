@@ -20,6 +20,10 @@ spec:
         volumeMounts:
           - mountPath: /cert
             name: cert
+        resources:
+          requests:
+            cpu: 200m
+            memory: 120Mi
       volumes:
       - name: cert
         secret:
