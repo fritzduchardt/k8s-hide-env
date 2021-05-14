@@ -6,7 +6,7 @@ By default, K8s exposes environment variables in the container environment. This
 
 ## How it works
 
-K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) in your K8s cluster, which in a nut-shell **extracts your container environment variables from the K8s manifest and adds them exclusively to the shell that starts the main process by amending container *command* and *args*.** Then environment variables are deleted from K8s manifest.
+K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) in your K8s cluster, which in a nut-shell **extracts your container environment variables from the K8s manifest and adds them to a K8s secret. On startup, they are made available exclusively to the shell that starts the main process by amending container *command* and *args*.** Then environment variables are deleted from K8s manifest.
 
 ## Limitations
 
@@ -14,7 +14,6 @@ K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/2
 - All environment variables have to be written straight into the K8s manifests. Reading from *Secrets* or *ConfigMaps* is currently not supported.
 - `ENTRYPOINT` and / or `CMD` configuration of the application container image has to get overwritten in K8s manifest with the `command` and / or `args` element.
 - Environment values will still be visible from the worker node proc file system.
-- Environment values will still be visible in the K8s manifest.
 
 ## Installation
 
@@ -26,42 +25,29 @@ Alternatively, you can use [cert-manager](https://cert-manager.io/) which is a b
 
 #### Create a Self-Signed Certificate with CertManager like that:
 ```shell
-kubectl create -f -<<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: k8s-hide-env
-  namespace: default
-spec:
-  # Secret names are always required.
-  secretName: k8s-hide-env-tls
-  duration: 2160h # 90d
-  renewBefore: 360h # 15d
-  subject:
-    organizations:
-    - github
-  isCA: false
-  privateKey:
-    algorithm: RSA
-    encoding: PKCS1
-    size: 2048
-  usages:
-    - server auth
-    - client auth
-  dnsNames:
-  - k8s-hide-env.default.svc.cluster.local
-  - k8s-hide-env.default.svc
-  - k8s-hide-env.default
-  - k8s-hide-env
-  issuerRef:
-    name: selfsigned-issuer
-    kind: Issuer
-EOF
+# install cert-manager 0.16.1
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version v0.16.1 \
+  --set installCRDs=true \
+  --create-namespace=true
+
+# install self-signed cluster issuer
+kubectl apply -f deployments/clusterissuer.yaml
+
+# install self-signed certificate
+kubectl apply -f deployments/certificate.yaml
 ```
+
 ### Install K8s Hide Env
 ```shell
-kubectl apply -f deployment/service.yaml
-kubectl apply -f deployment/deployment.yaml
+kubectl apply -f deployments/serviceaccount.yaml
+kubectl apply -f deployments/clusterrole.yaml
+kubectl apply -f deployments/clusterrolebinding.yaml
+kubectl apply -f deployments/service.yaml
+kubectl apply -f deployments/deployment.yaml
 ```
 
 ### Create the Webhook

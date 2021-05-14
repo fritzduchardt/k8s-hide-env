@@ -1,0 +1,27 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: k8s-hide-env
+  namespace: default
+spec:
+  # Secret names are always required.
+  secretName: k8s-hide-env-tls
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  organization:
+  - github
+  isCA: false
+  keySize: 2048
+  keyAlgorithm: rsa
+  keyEncoding: pkcs1
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+  - k8s-hide-env.default.svc.cluster.local
+  - k8s-hide-env.default.svc
+  - k8s-hide-env.default
+  - k8s-hide-env
+  issuerRef:
+    name: selfsigned-cluster-issuer
+    kind: ClusterIssuer

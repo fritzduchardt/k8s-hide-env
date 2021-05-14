@@ -16,7 +16,7 @@ import (
 func main() {
 	http.HandleFunc("/mutate", mutateHandler)
 	port := 8443
-	log.Printf("Starting K8s Hide-Env on port %d", port)
+	log.Printf("Starting K8s-Hide-Env on port %d", port)
 	err := http.ListenAndServeTLS(fmt.Sprintf(":%d", port), "/cert/tls.crt", "/cert/tls.key", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -24,12 +24,15 @@ func main() {
 }
 
 func mutateHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Receiving mutate request")
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil || string(body) == "" {
 		log.Printf("Error reading request body: %v", err)
 		http.Error(w, "Can't read request body", http.StatusBadRequest)
 	}
-	admissionResponseJson, err := createAdmissionResponse(string(body))
+	var client K8sClient
+	client = K8sClientImpl{}
+	admissionResponseJson, err := createAdmissionResponse(string(body), client)
 	if err != nil {
 		log.Fatalf("Failed to unmarshal admission request: %v", err)
 		http.Error(w, "Failed to unmarshal admission request", http.StatusBadRequest)
@@ -41,7 +44,9 @@ func mutateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func createAdmissionResponse(admissionRequestJson string) (string, error) {
+func createAdmissionResponse(admissionRequestJson string, client K8sClient) (string, error) {
+
+	secretPrefix := "k8s-hide-env"
 	var jsonPatches []map[string]interface{}
 
 	var admissionRequest map[string]interface{}
@@ -50,6 +55,8 @@ func createAdmissionResponse(admissionRequestJson string) (string, error) {
 		return "", fmt.Errorf("failure to unmarshal admission request: %w", err)
 	}
 	request := extractMap(admissionRequest, "request")
+	namespace := request["namespace"].(string)
+	releaseName := request["name"].(string)
 	object := extractMap(request, "object")
 	if object == nil {
 		object = request["oldObject"].(map[string]interface{})
@@ -60,49 +67,91 @@ func createAdmissionResponse(admissionRequestJson string) (string, error) {
 	}
 	outerSpec := extractMap(object, "spec")
 	spec := extractMap(extractMap(outerSpec, "template"), "spec")
+	volumes := extractList(spec, "volumes")
 
 	// iterate over containers
 	containers := extractList(spec, "containers")
 	for i := 0; i < len(containers); i++ {
 		container := containers[i]
+		containerName := container["name"].(string)
+		secretName := fmt.Sprintf("%s-%s-%s", secretPrefix, releaseName, containerName)
 		envs := extractList(container, "env")
-		//	List<Map<String, Object>> envs = extractList(container, "env");
 		if envs == nil {
 			continue
 		}
-		// add init-containers to save envs in file
-		var envCommands []string
-		envCommands = append(envCommands, "env")
+		var secretData string
 		for _, mapEntry := range envs {
-			var envCmd string
-			name := mapEntry["name"].(string)
-			envCmd += name
-			envCmd += "="
-			envCmd += mapEntry["value"].(string)
-			envCommands = append(envCommands, envCmd)
+			secretData = secretData + "export " + mapEntry["name"].(string) + "=" + mapEntry["value"].(string) + "\n"
 		}
-		envCommands = append(envCommands, "sh", "-c")
-
 		commands := extractStringList(container, "command")
 		args := extractStringList(container, "args")
 		op := "add"
 		if len(commands) > 0 {
 			op = "replace"
 		}
-		createPatch(op, fmt.Sprintf("/spec/template/spec/containers/%d/command", i), envCommands)
+		createPatch(op, fmt.Sprintf("/spec/template/spec/containers/%d/command", i), []string{"sh", "-c"})
 		if len(args) > 0 {
 			op = "replace"
 		}
 		processCommand, err := reconcile(commands, args)
 		if err != nil {
-			return "something went wrong with entrypoint command reconciliation", err
+			return "", fmt.Errorf("something went wrong with entrypoint command reconciliation: %w", err)
 		}
-
-		jsonPatches = append(jsonPatches, createPatch(op, fmt.Sprintf("/spec/template/spec/containers/%d/command", i), envCommands))
+		jsonPatches = append(jsonPatches, createPatch(op, fmt.Sprintf("/spec/template/spec/containers/%d/command", i), []string{"sh", "-c"}))
 		jsonPatches = append(jsonPatches, createPatch(op, fmt.Sprintf("/spec/template/spec/containers/%d/args", i), []string{processCommand}))
+		// if there are no volumes so far
+		if volumes == nil {
+			jsonPatches = append(jsonPatches, createPatch("add", "/spec/template/spec/volumes", []map[string]interface{}{{
+				"name": secretName,
+				"secret": map[string]string{
+					"secretName": secretName,
+				},
+			}}))
+		} else {
+			volumeIndex := getArrayIndex(volumes, secretName)
+			if volumeIndex == -1 {
+				jsonPatches = append(jsonPatches, createPatch("add", "/spec/template/spec/volumes/-", map[string]interface{}{
+					"name": secretName,
+					"secret": map[string]string{
+						"secretName": secretName,
+					},
+				}))
+			}
+		}
+		volumeMounts := extractList(container, "volumeMounts")
+		if volumeMounts == nil {
+			jsonPatches = append(jsonPatches, createPatch(op, fmt.Sprintf("/spec/template/spec/containers/%d/volumeMounts", i), []map[string]interface{}{{
+				"name":      secretName,
+				"mountPath": "/k8s-hide-env",
+			}}))
+		} else {
+			volumeMountIndex := getArrayIndex(volumeMounts, secretName)
+			if volumeMountIndex == -1 {
+				jsonPatches = append(jsonPatches, createPatch("add", fmt.Sprintf("/spec/template/spec/containers/%d/volumeMounts/-", i), map[string]interface{}{
+					"name":      secretName,
+					"mountPath": "/k8s-hide-env",
+				}))
+			}
+		}
 		jsonPatches = append(jsonPatches, createRemovePatch(fmt.Sprintf("/spec/template/spec/containers/%d/env", i)))
-	}
 
+		// if secret does not exist yet
+		secret, err := client.GetSecret(secretName, namespace)
+		if err != nil {
+			return "", fmt.Errorf("failure to retrieve k8shideenv secret: %w", err)
+		}
+		if secret == nil {
+			err = client.CreateSecret(secretName, namespace, map[string][]byte{"container.env": []byte(secretData)})
+			if err != nil {
+				return "", fmt.Errorf("failed to create secret: %w", err)
+			}
+		} else {
+			err = client.ApplySecret(secretName, namespace, map[string][]byte{"container.env": []byte(secretData)})
+			if err != nil {
+				return "", fmt.Errorf("failed to apply secret: %w", err)
+			}
+		}
+	}
 	// create admission response
 	admissionReviewReturn := map[string]interface{}{}
 	admissionReviewReturn["apiVersion"] = admissionRequest["apiVersion"]
@@ -114,7 +163,7 @@ func createAdmissionResponse(admissionRequestJson string) (string, error) {
 	admissionResponse["patchType"] = "JSONPatch"
 	json, err := json.Marshal(jsonPatches)
 	if err != nil {
-		return "failed to encode patches to JSON", err
+		return "", fmt.Errorf("failed to encode patches to JSON: %w", err)
 	}
 	log.Printf(string(json))
 	admissionResponse["patch"] = b64.StdEncoding.EncodeToString(json)
@@ -139,10 +188,10 @@ func createPatch(op string, path string, value interface{}) map[string]interface
 }
 
 func extractList(container map[string]interface{}, key string) []map[string]interface{} {
-	vals := container[key].([]interface{})
-	var retVal []map[string]interface{}
+	vals := container[key]
 	if vals != nil {
-		for _, entry := range vals {
+		var retVal []map[string]interface{}
+		for _, entry := range vals.([]interface{}) {
 			retVal = append(retVal, entry.(map[string]interface{}))
 		}
 		return retVal
@@ -163,9 +212,9 @@ func extractStringList(container map[string]interface{}, key string) []string {
 }
 
 func extractMap(container map[string]interface{}, key string) map[string]interface{} {
-	extracted := container[key].(map[string]interface{})
+	extracted := container[key]
 	if extracted != nil {
-		return extracted
+		return extracted.(map[string]interface{})
 	}
 	return nil
 }
@@ -176,7 +225,7 @@ func reconcile(commands []string, args []string) (string, error) {
 		return "", errors.New("either command or args have to be defined in K8s manifest")
 	}
 
-	var allCommands []string
+	allCommands := []string{". /k8s-hide-env/container.env &&"}
 	allCommands = append(allCommands, removeShellCommand(commands)...)
 	allCommands = append(allCommands, removeShellCommand(args)...)
 	return strings.Join(allCommands, " "), nil
@@ -188,4 +237,13 @@ func removeShellCommand(oldCommands []string) []string {
 		return oldCommands[2:]
 	}
 	return oldCommands
+}
+
+func getArrayIndex(mapList []map[string]interface{}, name string) int {
+	for index, entry := range mapList {
+		if entry["name"] == name {
+			return index
+		}
+	}
+	return -1
 }

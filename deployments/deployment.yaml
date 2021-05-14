@@ -13,9 +13,10 @@ spec:
       labels:
         app: k8s-hide-env
     spec:
+      serviceAccountName: k8s-hide-env
       containers:
       - image: fritzduchardt/k8s-hide-env:latest
-        imagePullPolicy: Always
+        imagePullPolicy: Never
         name: k8s-hide-env
         volumeMounts:
           - mountPath: /cert
