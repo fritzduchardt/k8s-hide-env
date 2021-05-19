@@ -1,4 +1,4 @@
-package main
+package k8s
 
 import (
 	"context"
@@ -10,16 +10,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type K8sClient interface {
+type KubernetesClient interface {
 	CreateSecret(secretName string, namespace string, data map[string][]byte) error
 	ApplySecret(secretName string, namespace string, data map[string][]byte) error
 	GetSecret(secretName string, namespace string) (*apiv1.Secret, error)
 }
 
-type K8sClientImpl struct {
+type KubernetesClientImpl struct {
 }
 
-func (k8s K8sClientImpl) createClient() (*kubernetes.Clientset, error) {
+func (k8s *KubernetesClientImpl) createClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 
 	if err != nil {
@@ -32,7 +32,7 @@ func (k8s K8sClientImpl) createClient() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
-func (k8s K8sClientImpl) CreateSecret(secretName string, namespace string, data map[string][]byte) error {
+func (k8s *KubernetesClientImpl) CreateSecret(secretName string, namespace string, data map[string][]byte) error {
 
 	clientset, err := k8s.createClient()
 	if err != nil {
@@ -56,7 +56,7 @@ func (k8s K8sClientImpl) CreateSecret(secretName string, namespace string, data 
 	return nil
 }
 
-func (k8s K8sClientImpl) ApplySecret(secretName string, namespace string, data map[string][]byte) error {
+func (k8s *KubernetesClientImpl) ApplySecret(secretName string, namespace string, data map[string][]byte) error {
 
 	clientset, err := k8s.createClient()
 	if err != nil {
@@ -80,7 +80,7 @@ func (k8s K8sClientImpl) ApplySecret(secretName string, namespace string, data m
 	return nil
 }
 
-func (k8s K8sClientImpl) GetSecret(secretName string, namespace string) (*apiv1.Secret, error) {
+func (k8s *KubernetesClientImpl) GetSecret(secretName string, namespace string) (*apiv1.Secret, error) {
 
 	clientset, err := k8s.createClient()
 	if err != nil {

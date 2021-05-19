@@ -64,7 +64,7 @@ metadata:
     app: k8s-hide-env
 webhooks:
   - name: k8s-hide-env.default.svc.cluster.local
-    sideEffects: None
+    sideEffects: NoneOnDryRun
     admissionReviewVersions: ["v1", "v1beta1"]
     matchPolicy: Equivalent
     objectSelector:
