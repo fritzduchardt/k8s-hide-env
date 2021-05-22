@@ -14,6 +14,7 @@ type KubernetesClient interface {
 	CreateSecret(secretName string, namespace string, data map[string][]byte) error
 	ApplySecret(secretName string, namespace string, data map[string][]byte) error
 	GetSecret(secretName string, namespace string) (*apiv1.Secret, error)
+	DeleteSecret(secretName string, namespace string) error
 }
 
 type KubernetesClientImpl struct {
@@ -93,4 +94,19 @@ func (k8s *KubernetesClientImpl) GetSecret(secretName string, namespace string) 
 	}
 
 	return secret, nil
+}
+
+func (k8s *KubernetesClientImpl) DeleteSecret(secretName string, namespace string) error {
+
+	clientset, err := k8s.createClient()
+	if err != nil {
+		return err
+	}
+
+	err = clientset.CoreV1().Secrets(namespace).Delete(context.TODO(), secretName, metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

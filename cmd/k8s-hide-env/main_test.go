@@ -3,30 +3,36 @@ package main
 import (
 	b64 "encoding/base64"
 	"encoding/json"
+	"github.com/golang/mock/gomock"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"k8s-hide-env/k8s"
+	"k8s-hide-env/util"
 	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+
+	"github.com/stretchr/testify/mock"
 )
 
 type KubernetesClientMock struct {
-	CreateCounter int
-	ApplyCounter  int
-	GetCounter    int
+	mock.Mock
 }
 
-func (k8s *KubernetesClientMock) CreateSecret(secretName string, namespace string, data map[string][]byte) error {
-	k8s.CreateCounter++
-	return nil
+func (m *KubernetesClientMock) CreateSecret(secretName string, namespace string, data map[string][]byte) error {
+	args := m.Called(secretName, namespace, data)
+	return args.Error(0)
 }
 func (k8s *KubernetesClientMock) ApplySecret(secretName string, namespace string, data map[string][]byte) error {
-	k8s.ApplyCounter++
 	return nil
 }
 
 func (k8s *KubernetesClientMock) GetSecret(secretName string, namespace string) (*apiv1.Secret, error) {
-	k8s.GetCounter++
 	return &apiv1.Secret{}, nil
+}
+
+func (k8s *KubernetesClientMock) DeleteSecret(secretName string, namespace string) error {
+	return nil
 }
 
 func TestCreateJsonPatch(t *testing.T) {
@@ -37,9 +43,18 @@ func TestCreateJsonPatch(t *testing.T) {
 	}
 	var admissionRequest map[string]interface{}
 	err = json.Unmarshal(admissionRequestJson, &admissionRequest)
+	request := util.ExtractMap(admissionRequest, "request")
+	resource := extractResource(request)
+	namespace := request["namespace"].(string)
 
-	client := &KubernetesClientMock{}
-	patch, err := createJsonPatch(admissionRequest, client)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := k8s.NewMockKubernetesClient(ctrl)
+
+	client.EXPECT().GetSecret("k8s-hide-env-k8sshowcase-k8s-showcase-application", "default").Times(1)
+	client.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+
+	patch, err := createJsonPatch(resource, namespace, false, client)
 
 	if err != nil {
 		t.Error(err)
@@ -54,19 +69,10 @@ func TestCreateJsonPatch(t *testing.T) {
 	assertPatch(t, patch[3], "replace", "/spec/template/spec/containers/0/volumeMounts")
 	assertPatch(t, patch[4], "remove", "/spec/template/spec/containers/0/env")
 
-	if client.GetCounter != 1 {
-		t.Errorf("K8s client getSecret was not invoked as expected: %v, expected number of invocations: %v", client.GetCounter, 1)
-	}
-	if client.ApplyCounter != 1 {
-		t.Errorf("K8s client applySecret was not invoked as expected: %v, expected number of invocations: %v", client.ApplyCounter, 1)
-	}
-	if client.CreateCounter != 0 {
-		t.Errorf("K8s client createSecret was not invoked as expected: %v, expected number of invocations: %v", client.CreateCounter, 0)
-	}
 }
 
 func TestCreateJsonPatchDryRun(t *testing.T) {
-	admissionRequestJson, err := readFixture("../../test/admission-request-dryrun.yaml")
+	admissionRequestJson, err := readFixture("../../test/admission-request.yaml")
 	if err != nil {
 		t.Errorf("%+v", err)
 		return
@@ -74,8 +80,14 @@ func TestCreateJsonPatchDryRun(t *testing.T) {
 	var admissionRequest map[string]interface{}
 	err = json.Unmarshal(admissionRequestJson, &admissionRequest)
 
-	client := &KubernetesClientMock{}
-	patch, err := createJsonPatch(admissionRequest, client)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := k8s.NewMockKubernetesClient(ctrl)
+
+	request := util.ExtractMap(admissionRequest, "request")
+	resource := extractResource(request)
+	namespace := request["namespace"].(string)
+	patch, err := createJsonPatch(resource, namespace, true, client)
 
 	if err != nil {
 		t.Error(err)
@@ -84,16 +96,68 @@ func TestCreateJsonPatchDryRun(t *testing.T) {
 	if len(patch) != 5 {
 		t.Errorf("Invalid patch length: %v, expected %v", len(patch), 5)
 	}
+}
 
-	if client.GetCounter != 0 {
-		t.Errorf("K8s client getSecret was not invoked as expected: %v, expected number of invocations: %v", client.GetCounter, 0)
+func TestDeleteSecret(t *testing.T) {
+	admissionRequestJson, err := readFixture("../../test/admission-request.yaml")
+	if err != nil {
+		t.Errorf("%+v", err)
+		return
 	}
-	if client.ApplyCounter != 0 {
-		t.Errorf("K8s client applySecret was not invoked as expected: %v, expected number of invocations: %v", client.ApplyCounter, 0)
+	var admissionRequest map[string]interface{}
+	err = json.Unmarshal(admissionRequestJson, &admissionRequest)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := k8s.NewMockKubernetesClient(ctrl)
+	client.EXPECT().GetSecret("k8s-hide-env-k8sshowcase-k8s-showcase-application", "default").Return(createSecret(), nil)
+	client.EXPECT().DeleteSecret("k8s-hide-env-k8sshowcase-k8s-showcase-application", "default").Times(1)
+
+	request := util.ExtractMap(admissionRequest, "request")
+	resource := extractResource(request)
+	namespace := request["namespace"].(string)
+	err = deleteSecret(resource, namespace, false, client)
+
+	if err != nil {
+		t.Error(err)
+		return
 	}
-	if client.CreateCounter != 0 {
-		t.Errorf("K8s client createSecret was not invoked as expected: %v, expected number of invocations: %v", client.CreateCounter, 0)
+}
+
+func TestDeleteSecretDryRun(t *testing.T) {
+	admissionRequestJson, err := readFixture("../../test/admission-request.yaml")
+	if err != nil {
+		t.Errorf("%+v", err)
+		return
 	}
+	var admissionRequest map[string]interface{}
+	err = json.Unmarshal(admissionRequestJson, &admissionRequest)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := k8s.NewMockKubernetesClient(ctrl)
+	client.EXPECT().GetSecret("k8s-hide-env-k8sshowcase-k8s-showcase-application", "default").Return(createSecret(), nil)
+
+	request := util.ExtractMap(admissionRequest, "request")
+	resource := extractResource(request)
+	namespace := request["namespace"].(string)
+	err = deleteSecret(resource, namespace, true, client)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func createSecret() *apiv1.Secret {
+	secret := &apiv1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "some-name",
+			Namespace: "default",
+		},
+		Data: nil,
+	}
+	return secret
 }
 
 func assertPatch(t *testing.T, patch map[string]interface{}, op string, path string) {

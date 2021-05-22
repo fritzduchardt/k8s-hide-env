@@ -78,7 +78,7 @@ webhooks:
         path: "/mutate"
         port: 8443
     rules:
-      - operations: ["CREATE", "UPDATE"]
+      - operations: ["CREATE", "UPDATE", "DELETE"]
         apiGroups: ["*"]
         apiVersions: ["*"]
         resources: ["deployments", "daemonsets", "statefulsets"]

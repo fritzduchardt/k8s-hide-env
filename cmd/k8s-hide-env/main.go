@@ -3,7 +3,6 @@ package main
 import (
 	b64 "encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"k8s-hide-env/k8s"
@@ -13,6 +12,8 @@ import (
 
 	"gopkg.in/yaml.v2"
 )
+
+const secretPrefix = "k8s-hide-env"
 
 func main() {
 	http.HandleFunc("/mutate", mutateHandler)
@@ -41,42 +42,50 @@ func mutateHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failure to unmarshal admission request", http.StatusBadRequest)
 		return
 	}
-	jsonPatches, err := createJsonPatch(admissionRequest, &k8s.KubernetesClientImpl{})
-	if err != nil {
-		log.Printf("Failure to create json patches: %v", err)
-		http.Error(w, "Failure to create json patches", http.StatusInternalServerError)
-		return
-	}
 
-	admissionResponseJson, err := createAdmissionResponse(admissionRequest["apiVersion"].(string), admissionRequest["uid"].(string), jsonPatches)
-	if err != nil {
-		log.Fatalf("Failed to unmarshal admission request: %v", err)
-		http.Error(w, "Failed to unmarshal admission request", http.StatusBadRequest)
-	}
-	_, err = fmt.Fprintf(w, admissionResponseJson)
-	if err != nil {
-		log.Printf("Failed to write response body: %v", err)
-		http.Error(w, "Can't writing response body", http.StatusInternalServerError)
+	request := util.ExtractMap(admissionRequest, "request")
+	operation := request["operation"].(string)
+	namespace := request["namespace"].(string)
+	dryRun := request["dryRun"].(bool)
+	resource := extractResource(admissionRequest)
+
+	if operation == "DELETE" {
+		deleteSecret(resource, namespace, dryRun, &k8s.KubernetesClientImpl{})
+	} else {
+		jsonPatches, err := createJsonPatch(resource, namespace, dryRun, &k8s.KubernetesClientImpl{})
+		if err != nil {
+			log.Printf("Failure to create json patches: %v", err)
+			http.Error(w, "Failure to create json patches", http.StatusInternalServerError)
+			return
+		}
+
+		admissionResponseJson, err := createAdmissionResponse(admissionRequest["apiVersion"].(string), admissionRequest["uid"].(string), jsonPatches)
+		if err != nil {
+			log.Fatalf("Failed to unmarshal admission request: %v", err)
+			http.Error(w, "Failed to unmarshal admission request", http.StatusBadRequest)
+		}
+		_, err = fmt.Fprintf(w, admissionResponseJson)
+		if err != nil {
+			log.Printf("Failed to write response body: %v", err)
+			http.Error(w, "Can't writing response body", http.StatusInternalServerError)
+		}
 	}
 }
 
-func createJsonPatch(admissionRequest map[string]interface{}, client k8s.KubernetesClient) ([]map[string]interface{}, error) {
-
-	var jsonPatches []map[string]interface{}
-	secretPrefix := "k8s-hide-env"
-	request := util.ExtractMap(admissionRequest, "request")
-	namespace := request["namespace"].(string)
-	releaseName := request["name"].(string)
-	dryRun := request["dryRun"].(bool)
+func extractResource(request map[string]interface{}) map[string]interface{} {
 	object := util.ExtractMap(request, "object")
 	if object == nil {
 		object = request["oldObject"].(map[string]interface{})
 	}
-	kind := object["kind"].(string)
-	if kind != "Deployment" && kind != "DaemonSet" && kind != "StatefulSet" {
-		return nil, errors.New("unsupported resource type")
-	}
-	outerSpec := util.ExtractMap(object, "spec")
+	return object
+}
+
+func createJsonPatch(resource map[string]interface{}, namespace string, dryRun bool, client k8s.KubernetesClient) ([]map[string]interface{}, error) {
+
+	var jsonPatches []map[string]interface{}
+	metadata := util.ExtractMap(resource, "metadata")
+	name := metadata["name"]
+	outerSpec := util.ExtractMap(resource, "spec")
 	spec := util.ExtractMap(util.ExtractMap(outerSpec, "template"), "spec")
 	volumes := util.ExtractMapList(spec, "volumes")
 
@@ -85,7 +94,7 @@ func createJsonPatch(admissionRequest map[string]interface{}, client k8s.Kuberne
 	for i := 0; i < len(containers); i++ {
 		container := containers[i]
 		containerName := container["name"].(string)
-		secretName := fmt.Sprintf("%s-%s-%s", secretPrefix, releaseName, containerName)
+		secretName := fmt.Sprintf("%s-%s-%s", secretPrefix, name, containerName)
 		envs := util.ExtractMapList(container, "env")
 		if envs == nil {
 			continue
@@ -166,6 +175,35 @@ func createJsonPatch(admissionRequest map[string]interface{}, client k8s.Kuberne
 		}
 	}
 	return jsonPatches, nil
+}
+
+func deleteSecret(resource map[string]interface{}, namespace string, dryRun bool, client k8s.KubernetesClient) error {
+
+	metadata := util.ExtractMap(resource, "metadata")
+	name := metadata["name"]
+	outerSpec := util.ExtractMap(resource, "spec")
+	spec := util.ExtractMap(util.ExtractMap(outerSpec, "template"), "spec")
+
+	// iterate over containers
+	containers := util.ExtractMapList(spec, "containers")
+	for i := 0; i < len(containers); i++ {
+		container := containers[i]
+		containerName := container["name"].(string)
+		secretName := fmt.Sprintf("%s-%s-%s", secretPrefix, name, containerName)
+
+		// if secret does not exist yet
+		secret, err := client.GetSecret(secretName, namespace)
+		if err != nil {
+			return fmt.Errorf("failure to retrieve k8shideenv secret: %w", err)
+		}
+		if secret != nil && !dryRun {
+			err = client.DeleteSecret(secretName, namespace)
+			if err != nil {
+				return fmt.Errorf("failed to create secret: %w", err)
+			}
+		}
+	}
+	return nil
 }
 
 func createAdmissionResponse(apiVersion string, requestId string, jsonPatches []map[string]interface{}) (string, error) {
