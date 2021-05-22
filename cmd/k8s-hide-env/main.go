@@ -47,10 +47,18 @@ func mutateHandler(w http.ResponseWriter, r *http.Request) {
 	operation := request["operation"].(string)
 	namespace := request["namespace"].(string)
 	dryRun := request["dryRun"].(bool)
-	resource := extractResource(admissionRequest)
+	resource := extractResource(request)
+	apiVersion := admissionRequest["apiVersion"].(string)
+	uid := request["uid"].(string)
+	var admissionResponseJson string
 
 	if operation == "DELETE" {
-		deleteSecret(resource, namespace, dryRun, &k8s.KubernetesClientImpl{})
+		err = deleteSecret(resource, namespace, dryRun, &k8s.KubernetesClientImpl{})
+		if err != nil {
+			log.Fatalf("Failed to delete k8s-hide-env secret: %v", err)
+			http.Error(w, "Failed to delete k8s-hide-env secret", http.StatusBadRequest)
+		}
+		admissionResponseJson, err = createAdmissionResponse(apiVersion, uid, []map[string]interface{}{})
 	} else {
 		jsonPatches, err := createJsonPatch(resource, namespace, dryRun, &k8s.KubernetesClientImpl{})
 		if err != nil {
@@ -58,17 +66,16 @@ func mutateHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failure to create json patches", http.StatusInternalServerError)
 			return
 		}
-
-		admissionResponseJson, err := createAdmissionResponse(admissionRequest["apiVersion"].(string), admissionRequest["uid"].(string), jsonPatches)
+		admissionResponseJson, err = createAdmissionResponse(apiVersion, uid, jsonPatches)
 		if err != nil {
 			log.Fatalf("Failed to unmarshal admission request: %v", err)
 			http.Error(w, "Failed to unmarshal admission request", http.StatusBadRequest)
 		}
-		_, err = fmt.Fprintf(w, admissionResponseJson)
-		if err != nil {
-			log.Printf("Failed to write response body: %v", err)
-			http.Error(w, "Can't writing response body", http.StatusInternalServerError)
-		}
+	}
+	_, err = fmt.Fprintf(w, admissionResponseJson)
+	if err != nil {
+		log.Printf("Failed to write response body: %v", err)
+		http.Error(w, "Can't writing response body", http.StatusInternalServerError)
 	}
 }
 
@@ -159,7 +166,7 @@ func createJsonPatch(resource map[string]interface{}, namespace string, dryRun b
 		if !dryRun {
 			secret, err := client.GetSecret(secretName, namespace)
 			if err != nil {
-				return nil, fmt.Errorf("failure to retrieve k8shideenv secret: %w", err)
+				return nil, fmt.Errorf("failure to retrieve k8s-hide-env secret: %w", err)
 			}
 			if secret == nil {
 				err = client.CreateSecret(secretName, namespace, map[string][]byte{"container.env": []byte(secretData)})
@@ -192,14 +199,16 @@ func deleteSecret(resource map[string]interface{}, namespace string, dryRun bool
 		secretName := fmt.Sprintf("%s-%s-%s", secretPrefix, name, containerName)
 
 		// if secret does not exist yet
+		log.Printf("Trying to delete secret: %v, in namespace: %v", secretName, namespace)
 		secret, err := client.GetSecret(secretName, namespace)
 		if err != nil {
-			return fmt.Errorf("failure to retrieve k8shideenv secret: %w", err)
+			return fmt.Errorf("failure to retrieve k8s-hide-env secret: %w", err)
 		}
 		if secret != nil && !dryRun {
+			log.Printf("Deleting secret: %v, in namespace: %w", secretName, namespace)
 			err = client.DeleteSecret(secretName, namespace)
 			if err != nil {
-				return fmt.Errorf("failed to create secret: %w", err)
+				return fmt.Errorf("failed to delete secret: %w", err)
 			}
 		}
 	}

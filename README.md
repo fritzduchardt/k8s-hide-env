@@ -25,37 +25,21 @@ Alternatively, you can use [cert-manager](https://cert-manager.io/) which is a b
 
 #### Create a Self-Signed Certificate with CertManager like that:
 ```shell
-# install cert-manager 0.16.1
-helm repo add jetstack https://charts.jetstack.io
-helm repo update
-helm install cert-manager jetstack/cert-manager \
-  --namespace cert-manager \
-  --version v0.16.1 \
-  --set installCRDs=true \
-  --create-namespace=true
-
-# install self-signed cluster issuer
-kubectl apply -f deployments/clusterissuer.yaml
-
-# install self-signed certificate
-kubectl apply -f deployments/certificate.yaml
+make install_certmanager
+make create_selfsigned_cert
 ```
 
 ### Install K8s Hide Env
 ```shell
-kubectl apply -f deployments/serviceaccount.yaml
-kubectl apply -f deployments/clusterrole.yaml
-kubectl apply -f deployments/clusterrolebinding.yaml
-kubectl apply -f deployments/service.yaml
-kubectl apply -f deployments/deployment.yaml
+make install_k8shideenv
 ```
 
 ### Create the Webhook
 
-Please note that here you have to provide the root certificate your server certs were signed with to validate TLS connections. Since in this Howto, we let K8s do the signing with the Minikube root certificate, let's provide the Minikube root certificate to the web hook configuration:
+Please note that here you have to provide the root certificate your server certs were signed with to validate TLS connections:
 
 ```shell
-cat <<EOF | kubectl replace --force -f -
+cat <<EOF | kubectl apply -f -
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -110,10 +94,8 @@ curl localhost:8080/env/MESSAGE
 The following commands will remove all traces of K8s-hide-env from your cluster: 
 
 ```
-kubectl delete mutatingwebhookconfigurations k8s-hide-env
-kubectl delete deploy k8s-hide-env
-kubectl delete svc k8s-hide-env
-kubectl delete secret k8s-hide-env-tls
+make delete_k8shideenv_deployment
+make delete_selfsigned_cert
 ```
 
 ## Feedback
