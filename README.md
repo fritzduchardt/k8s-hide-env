@@ -13,7 +13,7 @@ K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/2
 - Only works on *Deployments*, *StatefulSets* and *Daemonsets*.
 - All environment variables have to be written straight into the K8s manifests. Reading from *Secrets* or *ConfigMaps* is currently not supported.
 - `ENTRYPOINT` and / or `CMD` configuration of the application container image has to get overwritten in K8s manifest with the `command` and / or `args` element.
-- Environment values will still be visible from the worker node proc file system.
+- Environment values will still be visible from the container and host proc file system.
 
 ## Installation
 
