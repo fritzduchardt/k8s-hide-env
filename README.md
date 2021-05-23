@@ -2,11 +2,11 @@
 
 K8s Hide Env removes environment variables from your container environment and makes them  **only visible to the container main process and its child processes**.
 
-By default, K8s exposes environment variables in the container environment. This carries **substantial security risks**, since it allows container hijackers to gain access to infrastructure credentials and increases the risk for credentials exposure with lifecycle hooks.
+By default, Kubernetes exposes environment variables in the container environment. This carries **security risks**, since it allows container hijackers to gain easy access to infrastructure credentials and increases the risk for credentials exposure through exec containers or lifecycle hooks.
 
 ## How it works
 
-K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) in your K8s cluster, which in a nut-shell **extracts your container environment variables from the K8s manifest and adds them to a K8s secret. On startup, they are made available exclusively to the shell that starts the main process by amending container *command* and *args*.** Then environment variables are deleted from K8s manifest.
+K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) in your K8s cluster, which in a nut-shell **extracts your container environment variables from K8s manifests and adds them to K8s secrets. Furthermore, the webhook amends your containers'*command* and *args* statements to source the environment from those K8s secrets and exclusively expose them to the container main processes.** Then, environment variables are deleted from the K8s manifests.
 
 ## Limitations
 
