@@ -6,4 +6,8 @@ RUN go get -d -v
 
 FROM alpine:latest
 COPY --from=builder /go/src/github.com/fritzduchardt/k8shideenv/app .
+RUN addgroup -S k8shideenv
+RUN adduser -S -D k8shideenv k8shideenv
+RUN chown -R k8shideenv:k8shideenv ./app
+USER k8shideenv
 CMD ["./app"]
