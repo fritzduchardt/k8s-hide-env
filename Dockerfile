@@ -6,5 +6,4 @@ RUN go get -d -v
 
 FROM alpine:latest
 COPY --from=builder /go/src/github.com/fritzduchardt/k8shideenv/app .
-COPY /cmd/k8s-hide-env/app .
 CMD ["./app"]
