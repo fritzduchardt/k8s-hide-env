@@ -1,0 +1,26 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "k8s-hide-env.fullname" . }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "k8s-hide-env.fullname" . }}
+webhooks:
+  - name: {{ include "k8s-hide-env.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+    sideEffects: NoneOnDryRun
+    admissionReviewVersions: ["v1", "v1beta1"]
+    matchPolicy: Equivalent
+    objectSelector:
+      matchLabels:
+        mode: secure
+    clientConfig:
+      service:
+        name: {{ include "k8s-hide-env.fullname" . }}
+        namespace: {{ .Release.Namespace }}
+        path: "/mutate"
+        port: 8443
+    rules:
+      - operations: ["CREATE", "UPDATE", "DELETE"]
+        apiGroups: ["*"]
+        apiVersions: ["*"]
+        resources: ["deployments", "daemonsets", "statefulsets"]
+        scope: "*"

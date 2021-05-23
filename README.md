@@ -17,57 +17,23 @@ K8s Hide Env installs a [Mutating Web Hook](https://kubernetes.io/blog/2019/03/2
 
 ## Installation
 
-### Obtain a signed certificate
+### Installing Cert-Manager
 
-For detailed information about how to create a self-signed TLS certificate in K8s refer to this [documentation](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/).
+K8s internal communication is mandated to use TLS. Therefore, Mutating Web Hook applications need to expose ports that accept TLS traffic. Also, the corresponding Mutating Web Hook Configuration needs to include the CA cert that was used to create the application certificates.
 
-Alternatively, you can use [cert-manager](https://cert-manager.io/) which is a bit easier. Below we describe how to go ahead with cert-manager and a [SelfSigned Issuer](https://cert-manager.io/docs/configuration/selfsigned/). 
+We use [cert-manager](https://cert-manager.io/) for the certificate creation and renewal. We use a [SelfSigned Issuer](https://cert-manager.io/docs/configuration/selfsigned/) in order to create the application certificate and [Cainjector](https://cert-manager.io/docs/concepts/ca-injector/) to provide the CA certificate to the Mutating Web Hook Configuration.
 
-#### Create a Self-Signed Certificate with CertManager like that:
+#### Install Cert-Manager including CAInjector
 ```shell
 make install_certmanager
-make create_selfsigned_cert
 ```
 
-### Install K8s Hide Env
+### Install K8s Hide Env including everything (Mutating Web Hook Configuration, Certificate Issuer, Certificate, Application, RBAC configuration)
+
+We are using Helm in order to do the installation. The corresponding chart can be found under `./charts/k8s-hide-env`.
+
 ```shell
 make install_k8shideenv
-```
-
-### Create the Webhook
-
-Please note that here you have to provide the root certificate your server certs were signed with to validate TLS connections:
-
-```shell
-cat <<EOF | kubectl apply -f -
-apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
-metadata:
-  name: k8s-hide-env
-  labels:
-    app: k8s-hide-env
-webhooks:
-  - name: k8s-hide-env.default.svc.cluster.local
-    sideEffects: NoneOnDryRun
-    admissionReviewVersions: ["v1", "v1beta1"]
-    matchPolicy: Equivalent
-    objectSelector:
-      matchLabels:
-        mode: secure
-    clientConfig:
-      caBundle: $(kubectl get secret k8s-hide-env-tls -o jsonpath='{.data.ca\.crt}')
-      service:
-        name: k8s-hide-env
-        namespace: default
-        path: "/mutate"
-        port: 8443
-    rules:
-      - operations: ["CREATE", "UPDATE", "DELETE"]
-        apiGroups: ["*"]
-        apiVersions: ["*"]
-        resources: ["deployments", "daemonsets", "statefulsets"]
-        scope: "*"
-EOF
 ```
 
 ### Try it out
@@ -95,7 +61,6 @@ The following commands will remove all traces of K8s-hide-env from your cluster:
 
 ```
 make delete_k8shideenv_deployment
-make delete_selfsigned_cert
 ```
 
 ## Feedback

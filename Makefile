@@ -8,26 +8,11 @@ install_certmanager:
 	  --set installCRDs=true \
 	  --create-namespace=true
 
-create_selfsigned_cert:
-	# install self-signed cluster issuer
-	kubectl apply -f deployments/clusterissuer.yaml
-	# install self-signed certificate
-	kubectl apply -f deployments/certificate.yaml
-
 install_k8shideenv_deployment:
-	kubectl apply -f deployments/serviceaccount.yaml
-	kubectl apply -f deployments/clusterrole.yaml
-	kubectl apply -f deployments/clusterrolebinding.yaml
-	kubectl apply -f deployments/service.yaml
-	kubectl apply -f deployments/deployment.yaml
+	helm install k8s-hide-env charts/k8s-hide-env
 
 delete_k8shideenv_deployment:
-	kubectl delete mutatingwebhookconfigurations k8s-hide-env
-	kubectl delete deploy k8s-hide-env
-	kubectl delete svc k8s-hide-env
-
-delete_selfsigned_cert:
-	kubectl delete secret k8s-hide-env-tls
+	helm delete k8s-hide-env
 
 build_image:
 	docker build -t k8s-hide-env .
