@@ -28,7 +28,7 @@ We use [cert-manager](https://cert-manager.io/) for the certificate creation and
 make install_certmanager
 ```
 
-### Install K8s Hide Env including everything (Mutating Web Hook Configuration, Certificate Issuer, Certificate, Application, RBAC configuration)
+#### Install K8s Hide Env including everything (Mutating Web Hook Configuration, Certificate Issuer, Certificate, Application, RBAC configuration)
 
 We are using Helm in order to do the installation. The corresponding chart can be found under `./charts/k8s-hide-env`.
 
