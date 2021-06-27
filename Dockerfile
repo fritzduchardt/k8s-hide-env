@@ -10,5 +10,4 @@ RUN addgroup -S k8shideenv
 RUN adduser -S -D k8shideenv k8shideenv
 RUN chown -R k8shideenv:k8shideenv ./app
 USER k8shideenv
-ENV test=true
 CMD ["./app"]
