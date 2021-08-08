@@ -1,13 +1,16 @@
 apiVersion: cert-manager.io/v1alpha2
 kind: Certificate
 metadata:
-  name: kubedb-cert
+  name: {{ include "k8s-hide-env.fullname" . }}
+  labels:
+  {{- include "k8s-hide-env.labels" . | nindent 4 }}
 spec:
-  secretName: kubedb-cert-tls
+  # Secret names are always required.
+  secretName: {{ include "k8s-hide-env.fullname" . }}-tls
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   organization:
-  - github
+    - github
   isCA: false
   keySize: 2048
   keyAlgorithm: rsa
@@ -16,10 +19,10 @@ spec:
     - server auth
     - client auth
   dnsNames:
-  - billing-infra-databases-kubedb.default.svc.cluster.local
-  - billing-infra-databases-kubedb.default.svc
-  - billing-infra-databases-kubedb.default
-  - billing-infra-databases-kubedb
+    - {{ include "k8s-hide-env.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+    - {{ include "k8s-hide-env.fullname" . }}.{{ .Release.Namespace }}.svc
+    - {{ include "k8s-hide-env.fullname" . }}.{{ .Release.Namespace }}
+    - {{ include "k8s-hide-env.fullname" . }}
   issuerRef:
-    name: selfsigned-cluster-issuer
+    name: {{ .Values.certification.clusterIssuerName }}
     kind: ClusterIssuer
